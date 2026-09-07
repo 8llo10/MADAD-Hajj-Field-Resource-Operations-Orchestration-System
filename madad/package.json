@@ -1,0 +1,18 @@
+{
+  "name": "madad-platform",
+  "version": "3.0.0",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c auto \"npm run dev -w @madad/api\" \"npm run dev -w @madad/web\"",
+    "build": "npm run build -w @madad/api && npm run build -w @madad/web",
+    "db:generate": "npm run db:generate -w @madad/api",
+    "db:push": "npm run db:push -w @madad/api",
+    "db:seed": "npm run db:seed -w @madad/api",
+    "test": "npm run test -w @madad/api"
+  },
+  "devDependencies": {
+    "concurrently": "9.2.1"
+  },
+  "engines": {"node": ">=20 <23"}
+}

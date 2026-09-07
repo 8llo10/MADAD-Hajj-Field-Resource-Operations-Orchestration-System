@@ -1,1 +1,0 @@
-import './globals.css';import type { ReactNode } from 'react';export const metadata={title:'MADAD Operations',description:'Field Resource & Operations Orchestration'};export default function RootLayout({children}:{children:ReactNode}){return <html lang="en"><body>{children}</body></html>}
