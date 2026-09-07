@@ -1,3 +1,0 @@
-import type { RequestHandler } from 'express'; import jwt from 'jsonwebtoken'; import type { Role } from '@prisma/client'; import { env } from '../config.js'; import { AppError } from '../lib/errors.js';
-export const authenticate:RequestHandler=(req,_res,next)=>{const h=req.headers.authorization;if(!h?.startsWith('Bearer ')) return next(new AppError(401,'Authentication required'));try{req.user=jwt.verify(h.slice(7),env.JWT_ACCESS_SECRET) as any;next()}catch{return next(new AppError(401,'Invalid or expired token'))}};
-export const authorize=(...roles:Role[]):RequestHandler=>(req,_res,next)=>req.user&&roles.includes(req.user.role)?next():next(new AppError(403,'Insufficient permissions'));

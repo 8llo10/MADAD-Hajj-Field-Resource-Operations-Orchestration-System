@@ -1,8 +1,0 @@
-import { prisma } from '../../db.js'; import { haversineKm } from '../../lib/geo.js'; import { AppError } from '../../lib/errors.js';
-export async function rankTeams(incidentId:string){
- const inc=await prisma.incident.findUnique({where:{id:incidentId},include:{site:true,zone:true}});if(!inc)throw new AppError(404,'Incident not found');
- const teams=await prisma.team.findMany({where:{status:'AVAILABLE'},include:{site:true}});
- const ranked=teams.map(t=>{const distance=haversineKm(inc.latitude,inc.longitude,t.latitude,t.longitude);const distanceScore=Math.max(0,1-distance/25);const skillHits=inc.requiredSkills.filter(s=>t.skills.map(x=>x.toLowerCase()).includes(s.toLowerCase())).length;const skillScore=inc.requiredSkills.length?skillHits/inc.requiredSkills.length:1;const loadScore=Math.max(0,1-t.activeJobs/Math.max(t.maxConcurrentJobs,1));const sameSite=t.siteId===inc.siteId?1:0.35;const sameZone=inc.zoneId&&t.zoneId===inc.zoneId?1:0;const score=distanceScore*.28+skillScore*.32+loadScore*.18+sameSite*.14+sameZone*.08;return {team:t,score:+score.toFixed(4),distanceKm:+distance.toFixed(2),etaMinutes:Math.max(4,Math.round(distance/0.45+5)),explanation:{distanceScore:+distanceScore.toFixed(2),skillScore:+skillScore.toFixed(2),loadScore:+loadScore.toFixed(2),sameSite,sameZone,matchedSkills:skillHits,requiredSkills:inc.requiredSkills}}}).sort((a,b)=>b.score-a.score);
- return ranked;
-}
-export async function proposeBestDispatch(incidentId:string){const ranked=await rankTeams(incidentId);const best=ranked[0];if(!best)throw new AppError(409,'No available teams');return prisma.dispatch.create({data:{incidentId,teamId:best.team.id,score:best.score,distanceKm:best.distanceKm,etaMinutes:best.etaMinutes,explanation:best.explanation}})}

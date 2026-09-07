@@ -1,2 +1,0 @@
-import { describe,it,expect } from 'vitest'; import { analyzeIncident } from './ai.service.js';
-describe('AI incident analysis',()=>{it('scores critical incidents higher than low incidents',()=>{const base={ageMinutes:10,crowdDensity:3,siteCriticality:3,peopleAffected:5,availableTeamCount:3,requiredSkills:1} as const;const low=analyzeIncident({...base,severity:'LOW'});const high=analyzeIncident({...base,severity:'CRITICAL'});expect(high.riskScore).toBeGreaterThan(low.riskScore);expect(high.estimatedResolutionMinutes).toBeGreaterThan(low.estimatedResolutionMinutes)});});
