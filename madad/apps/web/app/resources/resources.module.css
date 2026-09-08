@@ -1,0 +1,447 @@
+.page {
+    --bone: #ece7dc;
+    --moss: #bdc7a4;
+    --sage: #8e9a86;
+    --cocoa: #5d4538;
+    --cocoa-light: #806252;
+
+    width: min(100%, 1480px);
+    margin-inline: auto;
+}
+
+/* HEADER */
+
+.topbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 24px;
+
+    margin-bottom: 26px;
+}
+
+.eyebrow {
+    width: fit-content;
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-bottom: 12px;
+
+    color: rgba(189, 199, 164, 0.7);
+
+    font-size: 9px;
+    font-weight: 800;
+
+    letter-spacing: 0.11em;
+}
+
+.eyebrow>span {
+    width: 6px;
+    height: 6px;
+
+    flex: 0 0 6px;
+
+    border-radius: 50%;
+
+    background: var(--cocoa-light);
+
+    box-shadow:
+        0 0 0 4px rgba(128, 98, 82, 0.1);
+}
+
+.title {
+    margin: 0;
+
+    color: var(--bone);
+
+    font-size: clamp(28px, 3vw, 42px);
+    font-weight: 800;
+
+    letter-spacing: -0.04em;
+}
+
+/* TABLE CONTAINER */
+
+.tableCard {
+    position: relative;
+
+    overflow: hidden;
+
+    border-radius: 26px;
+
+    border:
+        1px solid rgba(236, 231, 220, 0.08);
+
+    background:
+        linear-gradient(145deg,
+            rgba(31, 42, 33, 0.65),
+            rgba(14, 18, 15, 0.62) 58%,
+            rgba(62, 43, 35, 0.38));
+
+    backdrop-filter: blur(22px);
+
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.14);
+
+    animation:
+        tableEnter 0.45s ease both;
+}
+
+.tableCard::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    right: 40px;
+    left: 40px;
+
+    height: 1px;
+
+    background:
+        linear-gradient(90deg,
+            transparent,
+            rgba(189, 199, 164, 0.28),
+            rgba(128, 98, 82, 0.35),
+            transparent);
+}
+
+.tableWrap {
+    width: 100%;
+
+    overflow-x: auto;
+
+    scrollbar-width: thin;
+
+    scrollbar-color:
+        rgba(189, 199, 164, 0.18) transparent;
+}
+
+.tableWrap::-webkit-scrollbar {
+    height: 5px;
+}
+
+.tableWrap::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+
+    background:
+        rgba(189, 199, 164, 0.18);
+}
+
+/* TABLE */
+
+.table {
+    width: 100%;
+
+    min-width: 880px;
+
+    border-collapse: collapse;
+    border-spacing: 0;
+
+    table-layout: auto;
+}
+
+.table th {
+    height: 56px;
+
+    padding: 0 18px;
+
+    text-align: right;
+
+    color: rgba(236, 231, 220, 0.3);
+
+    font-size: 8px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    border-bottom:
+        1px solid rgba(236, 231, 220, 0.07);
+
+    background:
+        rgba(10, 14, 11, 0.18);
+}
+
+.table td {
+    min-height: 68px;
+
+    padding: 17px 18px;
+
+    text-align: right;
+    vertical-align: middle;
+
+    color: rgba(236, 231, 220, 0.62);
+
+    font-size: 9px;
+
+    border-bottom:
+        1px solid rgba(236, 231, 220, 0.055);
+
+    transition:
+        background 0.2s ease;
+}
+
+.table tbody tr {
+    transition:
+        background 0.22s ease;
+}
+
+.table tbody tr:hover {
+    background:
+        linear-gradient(90deg,
+            rgba(93, 69, 56, 0.09),
+            rgba(189, 199, 164, 0.035));
+}
+
+.table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* ASSET TAG */
+
+.assetTag {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 28px;
+
+    padding: 0 9px;
+
+    border-radius: 9px;
+
+    color: var(--moss);
+
+    background:
+        rgba(189, 199, 164, 0.06);
+
+    border:
+        1px solid rgba(189, 199, 164, 0.09);
+
+    font-size: 8px;
+    font-weight: 700;
+
+    direction: ltr;
+}
+
+/* NAME */
+
+.assetName {
+    display: block;
+
+    max-width: 220px;
+
+    overflow: hidden;
+
+    color: rgba(236, 231, 220, 0.88);
+
+    font-size: 10px;
+    font-weight: 700;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* TYPE */
+
+.type {
+    color: rgba(236, 231, 220, 0.46);
+
+    font-size: 9px;
+}
+
+/* STATUS */
+
+.status {
+    width: fit-content;
+
+    min-height: 28px;
+
+    padding: 0 9px;
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    border-radius: 999px;
+
+    color: var(--moss);
+
+    background:
+        linear-gradient(90deg,
+            rgba(189, 199, 164, 0.07),
+            rgba(93, 69, 56, 0.08));
+
+    border:
+        1px solid rgba(189, 199, 164, 0.1);
+
+    font-size: 8px;
+
+    white-space: nowrap;
+}
+
+.statusDot {
+    width: 5px;
+    height: 5px;
+
+    flex: 0 0 5px;
+
+    border-radius: 50%;
+
+    background: currentColor;
+
+    box-shadow:
+        0 0 0 3px rgba(189, 199, 164, 0.06);
+}
+
+/* LOCATION */
+
+.location {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    white-space: nowrap;
+}
+
+.location svg {
+    width: 15px;
+    height: 15px;
+
+    flex: 0 0 15px;
+
+    color: rgba(189, 199, 164, 0.43);
+}
+
+.location span {
+    color: rgba(236, 231, 220, 0.52);
+}
+
+/* CAPABILITIES */
+
+.capabilities {
+    max-width: 310px;
+
+    color: rgba(236, 231, 220, 0.42);
+
+    font-size: 8px;
+
+    line-height: 1.8;
+}
+
+/* LAPTOP */
+
+@media (max-width: 1279px) {
+    .topbar {
+        margin-bottom: 22px;
+    }
+
+    .tableCard {
+        border-radius: 23px;
+    }
+
+    .table th {
+        padding-inline: 15px;
+    }
+
+    .table td {
+        padding-inline: 15px;
+    }
+}
+
+/* TABLET */
+
+@media (max-width: 900px) {
+    .title {
+        font-size: 34px;
+    }
+
+    .tableCard {
+        border-radius: 21px;
+    }
+
+    .table {
+        min-width: 820px;
+    }
+}
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+    .topbar {
+        margin-bottom: 18px;
+    }
+
+    .eyebrow {
+        margin-bottom: 9px;
+
+        font-size: 8px;
+    }
+
+    .title {
+        font-size: 29px;
+    }
+
+    .tableCard {
+        border-radius: 19px;
+    }
+
+    .table {
+        min-width: 760px;
+    }
+
+    .table th {
+        height: 49px;
+
+        padding-inline: 13px;
+    }
+
+    .table td {
+        padding:
+            14px 13px;
+    }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 390px) {
+    .title {
+        font-size: 27px;
+    }
+
+    .tableCard {
+        border-radius: 17px;
+    }
+}
+
+/* ANIMATION */
+
+@keyframes tableEnter {
+    from {
+        opacity: 0;
+
+        transform:
+            translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .tableCard,
+    .table tbody tr,
+    .table td {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

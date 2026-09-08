@@ -1,7 +1,333 @@
 'use client';
+
 import { FormEvent, useEffect, useState } from 'react';
+
 import AppShell from '../../components/AppShell';
+
 import { api } from '../../lib/api';
-export default function Incidents(){const [rows,setRows]=useState<any[]>([]);const [sites,setSites]=useState<any[]>([]);const [show,setShow]=useState(false);const [error,setError]=useState('');const load=()=>api<any[]>('/incidents').then(setRows).catch(e=>setError(e.message));useEffect(()=>{load();api<any[]>('/operations/sites').then(setSites).catch(()=>{})},[]);
-async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const site=sites.find(s=>s.id===f.get('siteId'));const body={title:f.get('title'),description:f.get('description'),category:f.get('category'),requiredSkills:String(f.get('requiredSkills')||'').split(',').map(x=>x.trim()).filter(Boolean),severity:f.get('severity'),siteId:f.get('siteId'),zoneId:null,latitude:site?.latitude??21.4133,longitude:site?.longitude??39.8934,slaMinutes:Number(f.get('slaMinutes'))};try{await api('/incidents',{method:'POST',body:JSON.stringify(body)});setShow(false);load()}catch(e){setError(e instanceof Error?e.message:'خطأ')}}
-return <AppShell><div className="topbar"><div><div className="eyebrow">INCIDENT MANAGEMENT</div><h1 className="title">البلاغات الميدانية</h1><p className="subtitle">من التسجيل حتى الإغلاق مع سجل حالة كامل.</p></div><button className="btn" onClick={()=>setShow(!show)}>بلاغ جديد</button></div>{error&&<div className="error">{error}</div>}{show&&<form className="card form" onSubmit={submit}><div className="grid grid-2"><input className="input" name="title" placeholder="عنوان البلاغ" required/><select className="input" name="severity"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select><input className="input" name="category" placeholder="Electrical / Water / HVAC" required/><select className="input" name="siteId" required><option value="">اختر الموقع</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><input className="input" name="requiredSkills" placeholder="Electrical, Generator"/><input className="input" name="slaMinutes" type="number" defaultValue="30"/></div><textarea className="input" name="description" placeholder="وصف الحالة" required/><button className="btn">حفظ البلاغ</button></form>}<div className="spacer"/><div className="card table-wrap"><table className="table"><thead><tr><th>الكود</th><th>العنوان</th><th>الفئة</th><th>الموقع</th><th>الخطورة</th><th>الحالة</th><th>SLA</th></tr></thead><tbody>{rows.map(i=><tr key={i.id}><td>{i.code}</td><td>{i.title}</td><td>{i.category}</td><td>{i.site?.name}</td><td><span className={`badge ${String(i.severity).toLowerCase()}`}>{i.severity}</span></td><td>{i.status}</td><td>{i.slaMinutes} د</td></tr>)}</tbody></table></div></AppShell>}
+
+import styles from './incidents.module.css';
+
+export default function Incidents() {
+    const [rows, setRows] = useState<any[]>([]);
+    const [sites, setSites] = useState<any[]>([]);
+    const [show, setShow] = useState(false);
+    const [error, setError] = useState('');
+
+    const load = () => api<any[]>('/incidents')
+        .then(setRows)
+        .catch(e => setError(e.message));
+
+    useEffect(() => {
+        load();
+        api<any[]>('/operations/sites')
+            .then(setSites)
+            .catch(() => { })
+    }, []);
+
+    async function submit(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+
+        const f = new FormData(e.currentTarget);
+        const site = sites.find(s => s.id === f.get('siteId'));
+
+        const body = {
+            title: f.get('title'),
+            description: f.get('description'),
+            category: f.get('category'),
+            requiredSkills: String(f.get('requiredSkills') || '')
+                .split(',')
+                .map(x => x.trim())
+                .filter(Boolean),
+            severity: f.get('severity'),
+            siteId: f.get('siteId'),
+            zoneId: null,
+            latitude: site?.latitude ?? 21.4133,
+            longitude: site?.longitude ?? 39.8934,
+            slaMinutes: Number(f.get('slaMinutes'))
+        };
+
+        try {
+            await api('/incidents', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+
+            setShow(false);
+            load()
+        } catch (e) {
+            setError(
+                e instanceof Error
+                    ? e.message
+                    : 'خطأ'
+            )
+        }
+    }
+
+    return (
+        <AppShell>
+            <section className={styles.page}>
+
+                <header className={styles.topbar}>
+                    <div>
+                        <div className={styles.eyebrow}>
+                            <span />
+                            INCIDENT MANAGEMENT
+                        </div>
+
+                        <h1 className={styles.title}>
+                            البلاغات الميدانية
+                        </h1>
+
+                        <p className={styles.subtitle}>
+                            من التسجيل حتى الإغلاق مع سجل حالة كامل.
+                        </p>
+                    </div>
+
+                    <button
+                        className={styles.newButton}
+                        onClick={() => setShow(!show)}
+                    >
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 5v14M5 12h14" />
+                        </svg>
+
+                        بلاغ جديد
+                    </button>
+                </header>
+
+                {error && (
+                    <div className={styles.error}>
+                        {error}
+                    </div>
+                )}
+
+                {show && (
+                    <form
+                        className={styles.formCard}
+                        onSubmit={submit}
+                    >
+                        <div className={styles.formHeader}>
+                            <div>
+                                <div className={styles.formEyebrow}>
+                                    NEW INCIDENT
+                                </div>
+
+                                <h2>تسجيل بلاغ جديد</h2>
+                            </div>
+
+                            <div className={styles.formIcon}>
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M6 3h12v18H6z" />
+                                    <path d="M9 8h6M9 12h6M9 16h4" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div className={styles.formGrid}>
+
+                            <div className={styles.field}>
+                                <label>عنوان البلاغ</label>
+
+                                <input
+                                    className={styles.input}
+                                    name="title"
+                                    placeholder="عنوان البلاغ"
+                                    required
+                                />
+                            </div>
+
+                            <div className={styles.field}>
+                                <label>درجة الخطورة</label>
+
+                                <select
+                                    className={styles.input}
+                                    name="severity"
+                                >
+                                    <option>LOW</option>
+                                    <option>MEDIUM</option>
+                                    <option>HIGH</option>
+                                    <option>CRITICAL</option>
+                                </select>
+                            </div>
+
+                            <div className={styles.field}>
+                                <label>الفئة</label>
+
+                                <input
+                                    className={styles.input}
+                                    name="category"
+                                    placeholder="Electrical / Water / HVAC"
+                                    required
+                                />
+                            </div>
+
+                            <div className={styles.field}>
+                                <label>الموقع</label>
+
+                                <select
+                                    className={styles.input}
+                                    name="siteId"
+                                    required
+                                >
+                                    <option value="">
+                                        اختر الموقع
+                                    </option>
+
+                                    {sites.map(s => (
+                                        <option
+                                            key={s.id}
+                                            value={s.id}
+                                        >
+                                            {s.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className={styles.field}>
+                                <label>المهارات المطلوبة</label>
+
+                                <input
+                                    className={styles.input}
+                                    name="requiredSkills"
+                                    placeholder="Electrical, Generator"
+                                />
+                            </div>
+
+                            <div className={styles.field}>
+                                <label>SLA بالدقائق</label>
+
+                                <input
+                                    className={styles.input}
+                                    name="slaMinutes"
+                                    type="number"
+                                    defaultValue="30"
+                                />
+                            </div>
+
+                        </div>
+
+                        <div className={styles.field}>
+                            <label>وصف الحالة</label>
+
+                            <textarea
+                                className={`${styles.input} ${styles.textarea}`}
+                                name="description"
+                                placeholder="وصف الحالة"
+                                required
+                            />
+                        </div>
+
+                        <div className={styles.formActions}>
+                            <button
+                                className={styles.saveButton}
+                            >
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M5 4h12l2 2v14H5V4Z" />
+                                    <path d="M8 4v6h8V4M8 20v-6h8v6" />
+                                </svg>
+
+                                حفظ البلاغ
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                <section className={styles.incidentsPanel}>
+                    <div className={styles.panelHeader}>
+                        <div>
+                            <div className={styles.panelEyebrow}>
+                                FIELD INCIDENTS
+                            </div>
+
+                            <h2>سجل البلاغات</h2>
+                        </div>
+
+                        <div className={styles.panelIcon}>
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M5 6h14M5 12h14M5 18h14" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div className={styles.tableWrap}>
+                        <table className={styles.table}>
+                            <thead>
+                                <tr>
+                                    <th>الكود</th>
+                                    <th>العنوان</th>
+                                    <th>الفئة</th>
+                                    <th>الموقع</th>
+                                    <th>الخطورة</th>
+                                    <th>الحالة</th>
+                                    <th>SLA</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {rows.map(i => (
+                                    <tr key={i.id}>
+                                        <td>
+                                            <span className={styles.code}>
+                                                {i.code}
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <strong className={styles.incidentTitle}>
+                                                {i.title}
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            <span className={styles.category}>
+                                                {i.category}
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <div className={styles.location}>
+                                                <svg viewBox="0 0 24 24" fill="none">
+                                                    <path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z" />
+                                                    <circle cx="12" cy="9" r="2.3" />
+                                                </svg>
+
+                                                <span>{i.site?.name}</span>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <span
+                                                className={`${styles.severity} ${styles[
+                                                    `severity_${String(i.severity).toLowerCase()}`
+                                                ] || ''
+                                                    }`}
+                                            >
+                                                <span />
+                                                {i.severity}
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <span className={styles.status}>
+                                                {i.status}
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <span className={styles.sla}>
+                                                {i.slaMinutes} د
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </section>
+        </AppShell>
+    )
+}
