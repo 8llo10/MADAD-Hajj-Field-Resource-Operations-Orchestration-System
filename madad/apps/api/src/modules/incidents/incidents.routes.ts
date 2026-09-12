@@ -12,6 +12,25 @@ import { emitOps } from '../../realtime.js';
 const router = Router();
 router.use(authenticate);
 
+const REOPENABLE_INCIDENT_STATES = new Set<IncidentStatus>([
+  IncidentStatus.RESOLVED,
+  IncidentStatus.CLOSED
+]);
+
+const DISPATCH_MANAGED_INCIDENT_STATES = new Set<IncidentStatus>([
+  IncidentStatus.ASSIGNED,
+  IncidentStatus.EN_ROUTE,
+  IncidentStatus.ON_SITE,
+  IncidentStatus.RESOLVED,
+  IncidentStatus.REOPENED
+]);
+
+const INCIDENT_CLOSING_ROLES = new Set<Role>([
+  Role.ADMIN,
+  Role.COMMANDER,
+  Role.DISPATCHER
+]);
+
 const CreateIncidentSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(3),
@@ -122,7 +141,7 @@ router.post('/:id/reopen', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
   const { note } = z.object({ note: z.string().min(2).max(1000) }).parse(req.body);
   const current = await prisma.incident.findUnique({ where: { id } });
   if (!current) throw new AppError(404, 'Incident not found');
-  if (![IncidentStatus.RESOLVED, IncidentStatus.CLOSED].includes(current.status)) {
+  if (!REOPENABLE_INCIDENT_STATES.has(current.status)) {
     throw new AppError(409, 'Only resolved or closed incidents can be reopened');
   }
 
@@ -161,20 +180,13 @@ router.patch('/:id/status', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHE
   const current = await prisma.incident.findUnique({ where: { id } });
   if (!current) throw new AppError(404, 'Incident not found');
 
-  const dispatchManagedStatuses = [
-    IncidentStatus.ASSIGNED,
-    IncidentStatus.EN_ROUTE,
-    IncidentStatus.ON_SITE,
-    IncidentStatus.RESOLVED,
-    IncidentStatus.REOPENED
-  ];
-  if (dispatchManagedStatuses.includes(input.status)) {
+  if (DISPATCH_MANAGED_INCIDENT_STATES.has(input.status)) {
     throw new AppError(409, 'This status is managed by the dispatch lifecycle; use assignment, dispatch state, complete, or reopen actions');
   }
 
   if (input.status === IncidentStatus.CLOSED) {
     if (current.status !== IncidentStatus.RESOLVED) throw new AppError(409, 'Incident must be resolved before it can be closed');
-    if (![Role.ADMIN, Role.COMMANDER, Role.DISPATCHER].includes(req.user!.role)) {
+    if (!INCIDENT_CLOSING_ROLES.has(req.user!.role)) {
       throw new AppError(403, 'Only operations roles can close an incident');
     }
   }
