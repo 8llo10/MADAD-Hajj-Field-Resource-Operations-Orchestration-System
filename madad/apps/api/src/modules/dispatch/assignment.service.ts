@@ -24,10 +24,15 @@ const COMMITTED_DISPATCH_STATES: DispatchStatus[] = [
   DispatchStatus.ARRIVED
 ];
 
+const NON_ASSIGNABLE_INCIDENT_STATES = new Set<IncidentStatus>([
+  IncidentStatus.RESOLVED,
+  IncidentStatus.CLOSED
+]);
+
 async function buildDispatch(incidentId: string, teamId: string, mode: AssignmentMode, assignedById?: string | null) {
   const incident = await prisma.incident.findUnique({ where: { id: incidentId } });
   if (!incident) throw new AppError(404, 'Incident not found');
-  if ([IncidentStatus.RESOLVED, IncidentStatus.CLOSED].includes(incident.status)) {
+  if (NON_ASSIGNABLE_INCIDENT_STATES.has(incident.status)) {
     throw new AppError(409, 'Resolved or closed incidents cannot be assigned');
   }
 
