@@ -1,6 +1,7 @@
 import './globals.css';
 
 import type { Metadata } from 'next';
+import RoleRouteGuard from '../components/RoleRouteGuard';
 
 export const metadata: Metadata = {
     title: 'مَدَد | مركز العمليات الميدانية',
@@ -14,7 +15,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ar" dir="rtl">
-            <body>{children}</body>
+            <body><RoleRouteGuard>{children}</RoleRouteGuard></body>
         </html>
     );
 }
