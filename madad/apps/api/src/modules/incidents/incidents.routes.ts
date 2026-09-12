@@ -155,24 +155,32 @@ router.post('/:id/reopen', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
   res.json(row);
 }));
 
-router.patch('/:id/status', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR, Role.TECHNICIAN), asyncHandler(async (req, res) => {
+router.patch('/:id/status', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR), asyncHandler(async (req, res) => {
   const id = pathId(req.params.id);
   const input = StatusSchema.parse(req.body);
   const current = await prisma.incident.findUnique({ where: { id } });
   if (!current) throw new AppError(404, 'Incident not found');
 
-  if ([IncidentStatus.RESOLVED, IncidentStatus.REOPENED].includes(input.status)) {
-    throw new AppError(409, input.status === IncidentStatus.RESOLVED
-      ? 'Resolve the incident through the assigned dispatch so the resolver is recorded'
-      : 'Use the dedicated reopen endpoint');
+  const dispatchManagedStatuses = [
+    IncidentStatus.ASSIGNED,
+    IncidentStatus.EN_ROUTE,
+    IncidentStatus.ON_SITE,
+    IncidentStatus.RESOLVED,
+    IncidentStatus.REOPENED
+  ];
+  if (dispatchManagedStatuses.includes(input.status)) {
+    throw new AppError(409, 'This status is managed by the dispatch lifecycle; use assignment, dispatch state, complete, or reopen actions');
+  }
+
+  if (input.status === IncidentStatus.CLOSED) {
+    if (current.status !== IncidentStatus.RESOLVED) throw new AppError(409, 'Incident must be resolved before it can be closed');
+    if (![Role.ADMIN, Role.COMMANDER, Role.DISPATCHER].includes(req.user!.role)) {
+      throw new AppError(403, 'Only operations roles can close an incident');
+    }
   }
 
   const timestamps: Record<string, Date> = {};
-  if (input.status === IncidentStatus.ASSIGNED) timestamps.assignedAt = new Date();
-  if (input.status === IncidentStatus.CLOSED) {
-    if (current.status !== IncidentStatus.RESOLVED) throw new AppError(409, 'Incident must be resolved before it can be closed');
-    timestamps.closedAt = new Date();
-  }
+  if (input.status === IncidentStatus.CLOSED) timestamps.closedAt = new Date();
 
   const row = await prisma.$transaction(async tx => {
     const updated = await tx.incident.update({ where: { id }, data: { status: input.status, ...timestamps } });
