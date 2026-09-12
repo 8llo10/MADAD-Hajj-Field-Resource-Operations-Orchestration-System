@@ -21,7 +21,7 @@ import { emitOps } from '../../realtime.js';
 const router = Router();
 router.use(authenticate);
 
-const FIELD_TEAM_ROLES = new Set<Role>([Role.SUPERVISOR, Role.TECHNICIAN]);
+const FIELD_TEAM_ROLES = new Set<Role>([Role.SUPERVISOR]);
 const ACTIVE_COMMITTED_DISPATCH_STATES = new Set<DispatchStatus>([
   DispatchStatus.ACCEPTED,
   DispatchStatus.DISPATCHED,
@@ -33,7 +33,6 @@ router.get('/rank/:incidentId', asyncHandler(async (req, res) => {
   res.json(await rankTeamsForIncident(incidentId));
 }));
 
-// Compatibility endpoint: AI creates a proposal, but does not commit assignment.
 router.post('/auto/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER), asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   const row = await proposeBestAssignment(incidentId, AssignmentMode.AI, req.user!.id);
@@ -42,7 +41,6 @@ router.post('/auto/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISP
   res.status(201).json(row);
 }));
 
-// Compatibility endpoint: manual proposal only.
 router.post('/manual/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER), asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   const { teamId } = z.object({ teamId: z.string().min(1) }).parse(req.body);
@@ -52,7 +50,6 @@ router.post('/manual/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DI
   res.status(201).json(row);
 }));
 
-// Operator commits an assignment immediately to a chosen team.
 router.post('/assign/manual/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER), asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   const { teamId } = z.object({ teamId: z.string().min(1) }).parse(req.body);
@@ -62,7 +59,6 @@ router.post('/assign/manual/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, 
   res.status(201).json(row);
 }));
 
-// Operator lets the ranking engine choose and commit the best available team.
 router.post('/assign/ai/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER), asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   const row = await assignBestImmediately(incidentId, AssignmentMode.AI, req.user!.id);
@@ -71,7 +67,6 @@ router.post('/assign/ai/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role
   res.status(201).json(row);
 }));
 
-// Reassignment cancels the current active dispatch, releases its resources, and keeps history.
 router.post('/reassign/:incidentId', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER), asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   const input = z.object({
@@ -96,7 +91,7 @@ router.post('/:id/accept', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
   res.json(row);
 }));
 
-router.patch('/:id/state', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR, Role.TECHNICIAN), asyncHandler(async (req, res) => {
+router.patch('/:id/state', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR), asyncHandler(async (req, res) => {
   const id = pathId(req.params.id);
   const { status } = z.object({ status: z.enum(['DISPATCHED', 'ARRIVED', 'CANCELLED']) }).parse(req.body);
   const d = await prisma.dispatch.findUnique({ where: { id }, include: { incident: true, resources: true } });
@@ -139,7 +134,7 @@ router.patch('/:id/state', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
   res.json(row);
 }));
 
-router.post('/:id/complete', authorize(Role.ADMIN, Role.COMMANDER, Role.SUPERVISOR, Role.TECHNICIAN), asyncHandler(async (req, res) => {
+router.post('/:id/complete', authorize(Role.ADMIN, Role.COMMANDER, Role.SUPERVISOR), asyncHandler(async (req, res) => {
   const id = pathId(req.params.id);
   const { note } = z.object({ note: z.string().max(1000).optional() }).parse(req.body ?? {});
   const d = await prisma.dispatch.findUnique({ where: { id }, include: { resources: true, incident: true, team: true } });
