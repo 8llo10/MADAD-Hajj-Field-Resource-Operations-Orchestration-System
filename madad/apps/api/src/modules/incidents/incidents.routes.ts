@@ -22,10 +22,20 @@ const CreateIncidentSchema = z.object({
   zoneId: z.string().nullable().optional(),
   latitude: z.number(),
   longitude: z.number(),
-  slaMinutes: z.number().int().positive()
+  slaMinutes: z.number().int().positive(),
+  autoAssignmentEnabled: z.boolean().default(true),
+  autoAssignAfterMinutes: z.number().int().min(1).max(120).optional()
 });
 
 const StatusSchema = z.object({ status: z.nativeEnum(IncidentStatus), note: z.string().optional() });
+
+function autoAssignmentDelay(severity: IncidentSeverity, requested?: number) {
+  if (requested) return requested;
+  if (severity === IncidentSeverity.CRITICAL) return 2;
+  if (severity === IncidentSeverity.HIGH) return 5;
+  if (severity === IncidentSeverity.MEDIUM) return 10;
+  return 15;
+}
 
 router.get('/', asyncHandler(async (req, res) => {
   const status = typeof req.query.status === 'string' ? req.query.status as IncidentStatus : undefined;
@@ -35,7 +45,13 @@ router.get('/', asyncHandler(async (req, res) => {
     include: {
       site: true,
       zone: true,
-      dispatches: { include: { team: true }, orderBy: { proposedAt: 'desc' }, take: 3 }
+      resolvedByUser: { select: { id: true, name: true } },
+      resolvedByTeam: { select: { id: true, code: true, name: true } },
+      dispatches: {
+        include: { team: true, assignedBy: { select: { id: true, name: true } } },
+        orderBy: { proposedAt: 'desc' },
+        take: 5
+      }
     },
     orderBy: [{ severity: 'desc' }, { openedAt: 'desc' }]
   });
@@ -49,8 +65,17 @@ router.get('/:id', asyncHandler(async (req, res) => {
     include: {
       site: true,
       zone: true,
+      resolvedByUser: { select: { id: true, name: true, role: true } },
+      resolvedByTeam: { select: { id: true, code: true, name: true } },
       statusEvents: { orderBy: { createdAt: 'desc' } },
-      dispatches: { include: { team: true, resources: { include: { resource: true } } }, orderBy: { proposedAt: 'desc' } }
+      dispatches: {
+        include: {
+          team: true,
+          assignedBy: { select: { id: true, name: true } },
+          resources: { include: { resource: true } }
+        },
+        orderBy: { proposedAt: 'desc' }
+      }
     }
   });
   if (!row) throw new AppError(404, 'Incident not found');
@@ -60,11 +85,74 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR), asyncHandler(async (req, res) => {
   const input = CreateIncidentSchema.parse(req.body);
   const code = `INC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-  const row = await prisma.incident.create({ data: { ...input, code, status: IncidentStatus.OPEN } });
-  await prisma.incidentStatusEvent.create({ data: { incidentId: row.id, toStatus: IncidentStatus.OPEN, actorId: req.user!.id, note: 'Incident created' } });
+  const delayMinutes = autoAssignmentDelay(input.severity, input.autoAssignAfterMinutes);
+  const autoAssignAt = input.autoAssignmentEnabled
+    ? new Date(Date.now() + delayMinutes * 60_000)
+    : null;
+
+  const row = await prisma.incident.create({
+    data: {
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      requiredSkills: input.requiredSkills,
+      severity: input.severity,
+      siteId: input.siteId,
+      zoneId: input.zoneId,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      slaMinutes: input.slaMinutes,
+      autoAssignmentEnabled: input.autoAssignmentEnabled,
+      autoAssignAt,
+      code,
+      status: IncidentStatus.OPEN
+    }
+  });
+
+  await prisma.incidentStatusEvent.create({
+    data: { incidentId: row.id, toStatus: IncidentStatus.OPEN, actorId: req.user!.id, note: 'Incident created' }
+  });
   await audit(req, 'CREATE', 'Incident', row.id, undefined, row);
   emitOps('incident.created', row);
   res.status(201).json(row);
+}));
+
+router.post('/:id/reopen', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR), asyncHandler(async (req, res) => {
+  const id = pathId(req.params.id);
+  const { note } = z.object({ note: z.string().min(2).max(1000) }).parse(req.body);
+  const current = await prisma.incident.findUnique({ where: { id } });
+  if (!current) throw new AppError(404, 'Incident not found');
+  if (![IncidentStatus.RESOLVED, IncidentStatus.CLOSED].includes(current.status)) {
+    throw new AppError(409, 'Only resolved or closed incidents can be reopened');
+  }
+
+  const delayMinutes = autoAssignmentDelay(current.severity);
+  const now = new Date();
+  const row = await prisma.$transaction(async tx => {
+    const updated = await tx.incident.update({
+      where: { id },
+      data: {
+        status: IncidentStatus.REOPENED,
+        reopenCount: { increment: 1 },
+        lastReopenedAt: now,
+        assignedAt: null,
+        resolvedAt: null,
+        closedAt: null,
+        resolvedByUserId: null,
+        resolvedByTeamId: null,
+        resolutionNote: null,
+        autoAssignAt: current.autoAssignmentEnabled ? new Date(now.getTime() + delayMinutes * 60_000) : null
+      }
+    });
+    await tx.incidentStatusEvent.create({
+      data: { incidentId: id, fromStatus: current.status, toStatus: IncidentStatus.REOPENED, actorId: req.user!.id, note }
+    });
+    return updated;
+  });
+
+  await audit(req, 'REOPEN', 'Incident', id, current, row);
+  emitOps('incident.reopened', row);
+  res.json(row);
 }));
 
 router.patch('/:id/status', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER, Role.SUPERVISOR, Role.TECHNICIAN), asyncHandler(async (req, res) => {
@@ -72,15 +160,28 @@ router.patch('/:id/status', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHE
   const input = StatusSchema.parse(req.body);
   const current = await prisma.incident.findUnique({ where: { id } });
   if (!current) throw new AppError(404, 'Incident not found');
+
+  if ([IncidentStatus.RESOLVED, IncidentStatus.REOPENED].includes(input.status)) {
+    throw new AppError(409, input.status === IncidentStatus.RESOLVED
+      ? 'Resolve the incident through the assigned dispatch so the resolver is recorded'
+      : 'Use the dedicated reopen endpoint');
+  }
+
   const timestamps: Record<string, Date> = {};
   if (input.status === IncidentStatus.ASSIGNED) timestamps.assignedAt = new Date();
-  if (input.status === IncidentStatus.RESOLVED) timestamps.resolvedAt = new Date();
-  if (input.status === IncidentStatus.CLOSED) timestamps.closedAt = new Date();
+  if (input.status === IncidentStatus.CLOSED) {
+    if (current.status !== IncidentStatus.RESOLVED) throw new AppError(409, 'Incident must be resolved before it can be closed');
+    timestamps.closedAt = new Date();
+  }
+
   const row = await prisma.$transaction(async tx => {
     const updated = await tx.incident.update({ where: { id }, data: { status: input.status, ...timestamps } });
-    await tx.incidentStatusEvent.create({ data: { incidentId: id, fromStatus: current.status, toStatus: input.status, actorId: req.user!.id, note: input.note } });
+    await tx.incidentStatusEvent.create({
+      data: { incidentId: id, fromStatus: current.status, toStatus: input.status, actorId: req.user!.id, note: input.note }
+    });
     return updated;
   });
+
   await audit(req, 'STATUS_CHANGE', 'Incident', id, current, row);
   emitOps('incident.updated', row);
   res.json(row);
