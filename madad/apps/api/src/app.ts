@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { errorHandler } from './middleware/error-handler.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import incidentRoutes from './modules/incidents/incidents.routes.js';
+import incidentDetailsRoutes from './modules/incidents/incident-details.routes.js';
 import dispatchRoutes from './modules/dispatch/dispatch.routes.js';
 import teamRoutes from './modules/teams/teams.routes.js';
 import resourceRoutes from './modules/resources/resources.routes.js';
@@ -23,6 +24,7 @@ export function createApp() {
   app.get('/api/v1/health', (_req, res) => res.json({ ok: true, service: 'MADAD API', version: '3.1.0' }));
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/incidents', incidentRoutes);
+  app.use('/api/v1/incidents', incidentDetailsRoutes);
   app.use('/api/v1/dispatch', dispatchRoutes);
   app.use('/api/v1/teams', teamRoutes);
   app.use('/api/v1/resources', resourceRoutes);
