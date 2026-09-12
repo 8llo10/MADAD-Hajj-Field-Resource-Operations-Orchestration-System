@@ -50,6 +50,14 @@ router.get('/me', asyncHandler(async (req, res) => {
   res.json(memberships);
 }));
 
+router.get('/available-members', authorize(Role.ADMIN), asyncHandler(async (_req, res) => {
+  res.json(await prisma.user.findMany({
+    where: { isActive: true, role: { in: [Role.SUPERVISOR, Role.TECHNICIAN] } },
+    select: { id: true, name: true, email: true, role: true },
+    orderBy: { name: 'asc' }
+  }));
+}));
+
 router.get('/', asyncHandler(async (_req, res) => {
   res.json(await prisma.team.findMany({
     include: {
