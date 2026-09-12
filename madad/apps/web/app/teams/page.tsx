@@ -10,6 +10,7 @@ const memberRoles = ['LEAD', 'SUPERVISOR', 'TECHNICIAN', 'DRIVER', 'SUPPORT'];
 export default function Page() {
     const [teams, setTeams] = useState<any[]>([]);
     const [myTeams, setMyTeams] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [sites, setSites] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
@@ -18,12 +19,14 @@ export default function Page() {
     const [error, setError] = useState('');
 
     async function load() {
-        const [all, mine] = await Promise.all([
+        const [all, mine, inbox] = await Promise.all([
             api<any[]>('/teams'),
-            api<any[]>('/teams/me')
+            api<any[]>('/teams/me'),
+            api<any[]>('/operations/notifications')
         ]);
         setTeams(all);
         setMyTeams(mine);
+        setNotifications(inbox);
     }
 
     useEffect(() => {
@@ -39,6 +42,11 @@ export default function Page() {
             setIsAdmin(false);
         }
     }, []);
+
+    async function markRead(id: string) {
+        await api(`/operations/notifications/${id}/read`, { method: 'PATCH', body: '{}' });
+        setNotifications(current => current.map(n => n.id === id ? { ...n, isRead: true } : n));
+    }
 
     function toggleMember(userId: string) {
         setSelectedMembers(current => {
@@ -78,6 +86,7 @@ export default function Page() {
     }
 
     const myTeamIds = new Set(myTeams.map(m => m.teamId));
+    const urgentUnread = notifications.filter(n => !n.isRead && n.priority === 'URGENT');
 
     return (
         <AppShell>
@@ -95,6 +104,28 @@ export default function Page() {
                 </header>
 
                 {error && <div className={styles.teamCard} style={{ marginBottom: 16 }}>{error}</div>}
+
+                {urgentUnread.length > 0 && (
+                    <section style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
+                        {urgentUnread.map(n => (
+                            <button
+                                key={n.id}
+                                onClick={() => markRead(n.id)}
+                                className={styles.teamCard}
+                                style={{ textAlign: 'right', cursor: 'pointer', border: '1px solid rgba(164,56,56,.45)' }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center' }}>
+                                    <div>
+                                        <strong>{n.title}</strong>
+                                        <div style={{ marginTop: 6 }}>{n.message}</div>
+                                        {n.incident && <small>{n.incident.code} · {n.incident.severity} · {n.incident.status}</small>}
+                                    </div>
+                                    <span>عاجل</span>
+                                </div>
+                            </button>
+                        ))}
+                    </section>
+                )}
 
                 {showCreate && isAdmin && (
                     <form onSubmit={createTeam} className={styles.teamCard} style={{ marginBottom: 22 }}>
