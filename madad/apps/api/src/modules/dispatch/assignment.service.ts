@@ -18,9 +18,18 @@ const ACTIVE_DISPATCH_STATES: DispatchStatus[] = [
   DispatchStatus.ARRIVED
 ];
 
+const COMMITTED_DISPATCH_STATES: DispatchStatus[] = [
+  DispatchStatus.ACCEPTED,
+  DispatchStatus.DISPATCHED,
+  DispatchStatus.ARRIVED
+];
+
 async function buildDispatch(incidentId: string, teamId: string, mode: AssignmentMode, assignedById?: string | null) {
   const incident = await prisma.incident.findUnique({ where: { id: incidentId } });
   if (!incident) throw new AppError(404, 'Incident not found');
+  if ([IncidentStatus.RESOLVED, IncidentStatus.CLOSED].includes(incident.status)) {
+    throw new AppError(409, 'Resolved or closed incidents cannot be assigned');
+  }
 
   const candidate = (await rankTeamsForIncident(incidentId)).find(row => row.team.id === teamId);
   if (!candidate) throw new AppError(404, 'Team ranking not found');
@@ -65,7 +74,22 @@ export async function acceptAssignment(dispatchId: string, actorId: string | nul
   if (!dispatch) throw new AppError(404, 'Dispatch not found');
   if (dispatch.status !== DispatchStatus.PROPOSED) throw new AppError(409, 'Dispatch is not awaiting acceptance');
 
+  const conflicting = await prisma.dispatch.findFirst({
+    where: {
+      incidentId: dispatch.incidentId,
+      id: { not: dispatch.id },
+      status: { in: COMMITTED_DISPATCH_STATES }
+    }
+  });
+  if (conflicting) throw new AppError(409, 'Incident already has an active assigned team; use reassignment instead');
+
   const row = await prisma.$transaction(async tx => {
+    const freshTeam = await tx.team.findUnique({ where: { id: dispatch.teamId } });
+    if (!freshTeam) throw new AppError(404, 'Team not found');
+    if (freshTeam.status === TeamStatus.OFFLINE || freshTeam.activeJobs >= freshTeam.maxConcurrentJobs) {
+      throw new AppError(409, 'Team is no longer available');
+    }
+
     if (resourceIds.length) {
       const resources = await tx.resource.findMany({
         where: { id: { in: resourceIds }, status: ResourceStatus.AVAILABLE }
@@ -81,9 +105,10 @@ export async function acceptAssignment(dispatchId: string, actorId: string | nul
       });
     }
 
+    const nextJobs = freshTeam.activeJobs + 1;
     await tx.team.update({
       where: { id: dispatch.teamId },
-      data: { status: TeamStatus.BUSY, activeJobs: { increment: 1 } }
+      data: { status: nextJobs >= freshTeam.maxConcurrentJobs ? TeamStatus.BUSY : freshTeam.status, activeJobs: { increment: 1 } }
     });
 
     await tx.incident.update({
@@ -149,7 +174,7 @@ export async function reassignIncident(incidentId: string, newTeamId: string, ac
 
       await tx.dispatch.update({ where: { id: current.id }, data: { status: DispatchStatus.CANCELLED } });
 
-      if ([DispatchStatus.ACCEPTED, DispatchStatus.DISPATCHED, DispatchStatus.ARRIVED].includes(current.status)) {
+      if (COMMITTED_DISPATCH_STATES.includes(current.status)) {
         const oldTeam = await tx.team.findUnique({ where: { id: current.teamId } });
         if (oldTeam) {
           const nextJobs = Math.max(0, oldTeam.activeJobs - 1);
