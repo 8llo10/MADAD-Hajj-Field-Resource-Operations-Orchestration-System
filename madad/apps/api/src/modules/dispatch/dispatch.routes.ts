@@ -21,6 +21,13 @@ import { emitOps } from '../../realtime.js';
 const router = Router();
 router.use(authenticate);
 
+const FIELD_TEAM_ROLES = new Set<Role>([Role.SUPERVISOR, Role.TECHNICIAN]);
+const ACTIVE_COMMITTED_DISPATCH_STATES = new Set<DispatchStatus>([
+  DispatchStatus.ACCEPTED,
+  DispatchStatus.DISPATCHED,
+  DispatchStatus.ARRIVED
+]);
+
 router.get('/rank/:incidentId', asyncHandler(async (req, res) => {
   const incidentId = pathId(req.params.incidentId, 'incidentId');
   res.json(await rankTeamsForIncident(incidentId));
@@ -95,7 +102,7 @@ router.patch('/:id/state', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
   const d = await prisma.dispatch.findUnique({ where: { id }, include: { incident: true, resources: true } });
   if (!d) throw new AppError(404, 'Dispatch not found');
 
-  if ([Role.SUPERVISOR, Role.TECHNICIAN].includes(req.user!.role)) {
+  if (FIELD_TEAM_ROLES.has(req.user!.role)) {
     const membership = await prisma.teamMember.findFirst({ where: { teamId: d.teamId, userId: req.user!.id } });
     if (!membership) throw new AppError(403, 'You can only update dispatches assigned to your team');
   }
@@ -113,7 +120,7 @@ router.patch('/:id/state', authorize(Role.ADMIN, Role.COMMANDER, Role.DISPATCHER
     if (status === 'CANCELLED') {
       const resourceIds = d.resources.map(item => item.resourceId);
       if (resourceIds.length) await tx.resource.updateMany({ where: { id: { in: resourceIds } }, data: { status: ResourceStatus.AVAILABLE } });
-      if ([DispatchStatus.ACCEPTED, DispatchStatus.DISPATCHED, DispatchStatus.ARRIVED].includes(d.status)) {
+      if (ACTIVE_COMMITTED_DISPATCH_STATES.has(d.status)) {
         const team = await tx.team.findUnique({ where: { id: d.teamId } });
         if (team) {
           const nextJobs = Math.max(0, team.activeJobs - 1);
@@ -137,11 +144,11 @@ router.post('/:id/complete', authorize(Role.ADMIN, Role.COMMANDER, Role.SUPERVIS
   const { note } = z.object({ note: z.string().max(1000).optional() }).parse(req.body ?? {});
   const d = await prisma.dispatch.findUnique({ where: { id }, include: { resources: true, incident: true, team: true } });
   if (!d) throw new AppError(404, 'Dispatch not found');
-  if (![DispatchStatus.ACCEPTED, DispatchStatus.DISPATCHED, DispatchStatus.ARRIVED].includes(d.status)) {
+  if (!ACTIVE_COMMITTED_DISPATCH_STATES.has(d.status)) {
     throw new AppError(409, 'Only an active assigned dispatch can be completed');
   }
 
-  if ([Role.SUPERVISOR, Role.TECHNICIAN].includes(req.user!.role)) {
+  if (FIELD_TEAM_ROLES.has(req.user!.role)) {
     const membership = await prisma.teamMember.findFirst({ where: { teamId: d.teamId, userId: req.user!.id } });
     if (!membership) throw new AppError(403, 'Only a member of the assigned team can resolve this incident');
   }
