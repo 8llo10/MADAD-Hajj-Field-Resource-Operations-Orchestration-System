@@ -15,6 +15,14 @@ enum Role {
   TECHNICIAN
 }
 
+enum TeamMemberRole {
+  LEAD
+  SUPERVISOR
+  TECHNICIAN
+  DRIVER
+  SUPPORT
+}
+
 enum IncidentSeverity {
   LOW
   MEDIUM
@@ -29,6 +37,7 @@ enum IncidentStatus {
   EN_ROUTE
   ON_SITE
   RESOLVED
+  REOPENED
   CLOSED
 }
 
@@ -63,6 +72,18 @@ enum DispatchStatus {
   CANCELLED
 }
 
+enum AssignmentMode {
+  MANUAL
+  AI
+  AUTO_TIMEOUT
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
 enum InventoryTxnType {
   RECEIPT
   ISSUE
@@ -71,17 +92,19 @@ enum InventoryTxnType {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  name          String
-  role          Role
-  phone         String?
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  memberships   TeamMember[]
-  audits        AuditLog[]     @relation("AuditActor")
-  notifications Notification[]
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String
+  name               String
+  role               Role
+  phone              String?
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  memberships        TeamMember[]
+  audits             AuditLog[]     @relation("AuditActor")
+  notifications      Notification[]
+  assignedDispatches Dispatch[]     @relation("DispatchAssignedBy")
+  resolvedIncidents  Incident[]     @relation("IncidentResolvedBy")
 }
 
 model Site {
@@ -125,41 +148,58 @@ model Team {
   maxConcurrentJobs Int         @default(2)
   members           TeamMember[]
   dispatches        Dispatch[]
+  resolvedIncidents Incident[]   @relation("IncidentResolvedByTeam")
+
   @@index([status, siteId])
 }
 
 model TeamMember {
-  id     String @id @default(cuid())
-  teamId String
-  userId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String         @id @default(cuid())
+  teamId     String
+  userId     String
+  memberRole TeamMemberRole @default(TECHNICIAN)
+  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([teamId, userId])
+  @@index([userId])
 }
 
 model Incident {
-  id             String            @id @default(cuid())
-  code           String            @unique
-  title          String
-  description    String
-  category       String
-  requiredSkills String[]
-  severity       IncidentSeverity
-  status         IncidentStatus    @default(OPEN)
-  siteId         String
-  site           Site              @relation(fields: [siteId], references: [id])
-  zoneId         String?
-  zone           Zone?             @relation(fields: [zoneId], references: [id])
-  latitude       Float
-  longitude      Float
-  slaMinutes     Int
-  openedAt       DateTime          @default(now())
-  assignedAt     DateTime?
-  resolvedAt     DateTime?
-  closedAt       DateTime?
-  dispatches     Dispatch[]
-  statusEvents   IncidentStatusEvent[]
+  id                    String            @id @default(cuid())
+  code                  String            @unique
+  title                 String
+  description           String
+  category              String
+  requiredSkills        String[]
+  severity              IncidentSeverity
+  status                IncidentStatus    @default(OPEN)
+  siteId                String
+  site                  Site              @relation(fields: [siteId], references: [id])
+  zoneId                String?
+  zone                  Zone?             @relation(fields: [zoneId], references: [id])
+  latitude              Float
+  longitude             Float
+  slaMinutes            Int
+  openedAt              DateTime          @default(now())
+  assignedAt            DateTime?
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+  autoAssignmentEnabled Boolean           @default(true)
+  autoAssignAt          DateTime?
+  reopenCount           Int               @default(0)
+  lastReopenedAt        DateTime?
+  resolvedByUserId      String?
+  resolvedByUser        User?             @relation("IncidentResolvedBy", fields: [resolvedByUserId], references: [id])
+  resolvedByTeamId      String?
+  resolvedByTeam        Team?             @relation("IncidentResolvedByTeam", fields: [resolvedByTeamId], references: [id])
+  resolutionNote        String?
+  dispatches            Dispatch[]
+  statusEvents          IncidentStatusEvent[]
+  notifications         Notification[]
+
   @@index([status, severity])
+  @@index([autoAssignmentEnabled, autoAssignAt, status])
 }
 
 model IncidentStatusEvent {
@@ -174,23 +214,28 @@ model IncidentStatusEvent {
 }
 
 model Dispatch {
-  id           String          @id @default(cuid())
-  incidentId   String
-  incident     Incident        @relation(fields: [incidentId], references: [id])
-  teamId       String
-  team         Team            @relation(fields: [teamId], references: [id])
-  score        Float
-  distanceKm   Float
-  etaMinutes   Int
-  explanation  Json
-  status       DispatchStatus  @default(PROPOSED)
-  proposedAt   DateTime        @default(now())
-  acceptedAt   DateTime?
-  dispatchedAt DateTime?
-  arrivedAt    DateTime?
-  completedAt  DateTime?
-  resources    DispatchResource[]
+  id             String          @id @default(cuid())
+  incidentId     String
+  incident       Incident        @relation(fields: [incidentId], references: [id])
+  teamId         String
+  team           Team            @relation(fields: [teamId], references: [id])
+  score          Float
+  distanceKm     Float
+  etaMinutes     Int
+  explanation    Json
+  status         DispatchStatus  @default(PROPOSED)
+  assignmentMode AssignmentMode  @default(MANUAL)
+  assignedById   String?
+  assignedBy     User?           @relation("DispatchAssignedBy", fields: [assignedById], references: [id])
+  proposedAt     DateTime        @default(now())
+  acceptedAt     DateTime?
+  dispatchedAt   DateTime?
+  arrivedAt      DateTime?
+  completedAt    DateTime?
+  resources      DispatchResource[]
+
   @@index([incidentId, status])
+  @@index([teamId, status])
 }
 
 model Resource {
@@ -213,6 +258,7 @@ model DispatchResource {
   resourceId String
   dispatch   Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
   resource   Resource @relation(fields: [resourceId], references: [id])
+
   @@unique([dispatchId, resourceId])
 }
 
@@ -238,13 +284,19 @@ model InventoryTransaction {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String               @id @default(cuid())
+  userId     String
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId String?
+  incident   Incident?            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  title      String
+  message    String
+  priority   NotificationPriority @default(NORMAL)
+  isRead     Boolean              @default(false)
+  createdAt  DateTime             @default(now())
+
+  @@index([userId, isRead, createdAt])
+  @@index([incidentId])
 }
 
 model AuditLog {
