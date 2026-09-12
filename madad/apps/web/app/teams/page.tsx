@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import AppShell from '../../components/AppShell';
 import { api } from '../../lib/api';
 import styles from './teams.module.css';
@@ -41,6 +42,23 @@ export default function Page() {
         } catch {
             setIsAdmin(false);
         }
+
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000');
+        const refresh = () => load().catch(e => setError(e instanceof Error ? e.message : 'خطأ'));
+        [
+            'notification.created',
+            'dispatch.assigned',
+            'dispatch.reassigned',
+            'dispatch.auto-assigned',
+            'dispatch.completed',
+            'team.created',
+            'team.member.updated',
+            'team.member.removed'
+        ].forEach(event => socket.on(event, refresh));
+
+        return () => {
+            socket.disconnect();
+        };
     }, []);
 
     async function markRead(id: string) {
