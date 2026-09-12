@@ -24,18 +24,20 @@ const copy = {
         feature3Text: "حالة العمليات لحظة بلحظة",
         commandCenter: "مركز العمليات",
         welcome: "مرحبًا بعودتك",
-        loginDescription: "أدخل بياناتك للوصول إلى مركز عمليات مَدَد.",
+        loginDescription: "أدخل بياناتك للوصول إلى منصة مَدَد.",
         email: "البريد الإلكتروني",
         emailPlaceholder: "name@organization.sa",
         password: "كلمة المرور",
         passwordPlaceholder: "أدخل كلمة المرور",
         showPassword: "إظهار كلمة المرور",
         hidePassword: "إخفاء كلمة المرور",
-        login: "الدخول إلى مركز العمليات",
+        login: "تسجيل الدخول",
         loading: "جاري التحقق...",
         demoDivider: "أو جرّب النظام",
-        demoTitle: "الدخول بحساب العرض",
-        demoText: "تعبئة بيانات الدخول تلقائيًا",
+        managerDemoTitle: "عرض حساب الإدارة",
+        managerDemoText: "مركز العمليات والصلاحيات الإدارية",
+        fieldDemoTitle: "عرض حساب الفريق الميداني",
+        fieldDemoText: "بلاغ الفريق والتحديث والحل الميداني",
         secure: "اتصال آمن",
         error: "تعذر تسجيل الدخول",
         genericError: "حدث خطأ أثناء تسجيل الدخول",
@@ -58,18 +60,20 @@ const copy = {
         feature3Text: "Live operational status",
         commandCenter: "Operations Center",
         welcome: "Welcome back",
-        loginDescription: "Enter your credentials to access MADAD Operations Center.",
+        loginDescription: "Enter your credentials to access MADAD.",
         email: "Email address",
         emailPlaceholder: "name@organization.sa",
         password: "Password",
         passwordPlaceholder: "Enter your password",
         showPassword: "Show password",
         hidePassword: "Hide password",
-        login: "Enter Operations Center",
+        login: "Sign in",
         loading: "Verifying...",
         demoDivider: "or explore the platform",
-        demoTitle: "Use demo account",
-        demoText: "Fill demo credentials automatically",
+        managerDemoTitle: "Manager demo",
+        managerDemoText: "Operations center and management permissions",
+        fieldDemoTitle: "Field team demo",
+        fieldDemoText: "Assigned incident, field updates and resolution",
         secure: "Secure connection",
         error: "Unable to sign in",
         genericError: "An error occurred while signing in",
@@ -92,54 +96,46 @@ export default function Login() {
 
     useEffect(() => {
         const savedLanguage = localStorage.getItem("madad_language");
-
-        if (savedLanguage === "ar" || savedLanguage === "en") {
-            setLanguage(savedLanguage);
-        }
+        if (savedLanguage === "ar" || savedLanguage === "en") setLanguage(savedLanguage);
     }, []);
 
     function changeLanguage() {
         const nextLanguage: Language = language === "ar" ? "en" : "ar";
-
         setLanguage(nextLanguage);
         localStorage.setItem("madad_language", nextLanguage);
         setError("");
     }
 
-    function fillDemoAccount() {
+    function fillManagerDemoAccount() {
         setEmail("admin@madad.sa");
+        setPassword("Madad@123");
+        setError("");
+    }
+
+    function fillFieldDemoAccount() {
+        setEmail("field@madad.sa");
         setPassword("Madad@123");
         setError("");
     }
 
     async function submit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
-
         setLoading(true);
         setError("");
 
         try {
             const response = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email,
-                    password,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
             });
 
             const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || t.error);
-            }
+            if (!response.ok) throw new Error(data.error || t.error);
 
             localStorage.setItem("madad_access_token", data.accessToken);
             localStorage.setItem("madad_user", JSON.stringify(data.user));
-
-            router.push("/dashboard");
+            router.push(data.user?.role === "TECHNICIAN" ? "/field" : "/dashboard");
         } catch (err) {
             setError(err instanceof Error ? err.message : t.genericError);
         } finally {
@@ -148,401 +144,120 @@ export default function Login() {
     }
 
     return (
-        <main
-            className={styles.page}
-            dir={isArabic ? "rtl" : "ltr"}
-            lang={language}
-        >
-            {/* ================= BACKGROUND ================= */}
-
+        <main className={styles.page} dir={isArabic ? "rtl" : "ltr"} lang={language}>
             <div className={styles.background} aria-hidden="true">
-                <video
-                    className={styles.video}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                >
+                <video className={styles.video} autoPlay muted loop playsInline preload="metadata">
                     <source src="/videos/madad-bg.mp4" type="video/mp4" />
                 </video>
-
                 <div className={styles.fallback} />
                 <div className={styles.videoOverlay} />
-
                 <div className={`${styles.glow} ${styles.glowOlive}`} />
                 <div className={`${styles.glow} ${styles.glowBrown}`} />
-
                 <div className={styles.noise} />
             </div>
-
-            {/* ================= HEADER ================= */}
 
             <header className={styles.header}>
                 <div className={styles.brand}>
                     <div className={styles.logo} aria-hidden="true">
                         <svg viewBox="0 0 48 48" fill="none">
-                            <path
-                                d="M24 5 39 13.7v17.4L24 39.8 9 31.1V13.7L24 5Z"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                            />
-
-                            <path
-                                d="M24 12.8 33 18v12l-9 5.2L15 30V18l9-5.2Z"
-                                stroke="currentColor"
-                                strokeWidth="1.4"
-                                opacity=".55"
-                            />
-
+                            <path d="M24 5 39 13.7v17.4L24 39.8 9 31.1V13.7L24 5Z" stroke="currentColor" strokeWidth="1.7" />
+                            <path d="M24 12.8 33 18v12l-9 5.2L15 30V18l9-5.2Z" stroke="currentColor" strokeWidth="1.4" opacity=".55" />
                             <circle cx="24" cy="24" r="4.2" fill="currentColor" />
                         </svg>
                     </div>
-
-                    <div className={styles.brandText}>
-                        <strong>مَدَد</strong>
-                        <span>{t.platform}</span>
-                    </div>
+                    <div className={styles.brandText}><strong>مَدَد</strong><span>{t.platform}</span></div>
                 </div>
 
                 <div className={styles.headerActions}>
-                    <div className={styles.systemStatus}>
-                        <span className={styles.statusPulse}>
-                            <span />
-                        </span>
-
-                        <span>{t.status}</span>
-                    </div>
-
-                    <button
-                        type="button"
-                        className={styles.languageButton}
-                        onClick={changeLanguage}
-                        aria-label="Change language"
-                    >
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <circle
-                                cx="12"
-                                cy="12"
-                                r="8.5"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                            />
-
-                            <path
-                                d="M3.8 12h16.4M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5S14.2 18.2 12 20.5M12 3.5C9.8 5.8 8.7 8.6 8.7 12s1.1 6.2 3.3 8.5"
-                                stroke="currentColor"
-                                strokeWidth="1.3"
-                            />
-                        </svg>
-
+                    <div className={styles.systemStatus}><span className={styles.statusPulse}><span /></span><span>{t.status}</span></div>
+                    <button type="button" className={styles.languageButton} onClick={changeLanguage} aria-label="Change language">
+                        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.5" /><path d="M3.8 12h16.4M12 3.5c2.2 2.3 3.3 5.1 3.3 8.5S14.2 18.2 12 20.5M12 3.5C9.8 5.8 8.7 8.6 8.7 12s1.1 6.2 3.3 8.5" stroke="currentColor" strokeWidth="1.3" /></svg>
                         <span>{t.language}</span>
                     </button>
                 </div>
             </header>
 
-            {/* ================= CONTENT ================= */}
-
             <div className={styles.layout}>
-                {/* HERO */}
-
                 <section className={styles.hero}>
                     <div className={styles.heroMain}>
-                        <div className={styles.eyebrow}>
-                            <span />
-                            {t.eyebrow}
-                        </div>
-
-                        <h1 className={styles.heroTitle}>
-                            {t.heroTitle}
-                            <span>{t.heroAccent}</span>
-                        </h1>
-
-                        <p className={styles.heroDescription}>
-                            {t.heroDescription}
-                        </p>
+                        <div className={styles.eyebrow}><span />{t.eyebrow}</div>
+                        <h1 className={styles.heroTitle}>{t.heroTitle}<span>{t.heroAccent}</span></h1>
+                        <p className={styles.heroDescription}>{t.heroDescription}</p>
 
                         <div className={styles.features}>
-                            <article className={styles.feature}>
-                                <div className={styles.featureNumber}>01</div>
-
-                                <div>
-                                    <strong>{t.feature1Title}</strong>
-                                    <span>{t.feature1Text}</span>
-                                </div>
-                            </article>
-
-                            <article className={styles.feature}>
-                                <div className={styles.featureNumber}>02</div>
-
-                                <div>
-                                    <strong>{t.feature2Title}</strong>
-                                    <span>{t.feature2Text}</span>
-                                </div>
-                            </article>
-
-                            <article className={styles.feature}>
-                                <div className={styles.featureNumber}>03</div>
-
-                                <div>
-                                    <strong>{t.feature3Title}</strong>
-                                    <span>{t.feature3Text}</span>
-                                </div>
-                            </article>
+                            <article className={styles.feature}><div className={styles.featureNumber}>01</div><div><strong>{t.feature1Title}</strong><span>{t.feature1Text}</span></div></article>
+                            <article className={styles.feature}><div className={styles.featureNumber}>02</div><div><strong>{t.feature2Title}</strong><span>{t.feature2Text}</span></div></article>
+                            <article className={styles.feature}><div className={styles.featureNumber}>03</div><div><strong>{t.feature3Title}</strong><span>{t.feature3Text}</span></div></article>
                         </div>
                     </div>
 
-                    <div className={styles.heroFooter}>
-                        <span>MADAD</span>
-                        <div />
-                        <span>FIELD OPERATIONS</span>
-                        <span>2026</span>
-                    </div>
+                    <div className={styles.heroFooter}><span>MADAD</span><div /><span>FIELD OPERATIONS</span><span>2026</span></div>
                 </section>
-
-                {/* LOGIN */}
 
                 <section className={styles.authSection}>
                     <div className={styles.authCard}>
                         <div className={styles.cardAccent} />
 
                         <div className={styles.authHeader}>
-                            <div className={styles.commandBadge}>
-                                <span />
-                                {t.commandCenter}
-                            </div>
-
+                            <div className={styles.commandBadge}><span />{t.commandCenter}</div>
                             <h2>{t.welcome}</h2>
-
                             <p>{t.loginDescription}</p>
                         </div>
 
                         {error && (
                             <div className={styles.error} role="alert">
-                                <svg viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="8.5"
-                                        stroke="currentColor"
-                                        strokeWidth="1.5"
-                                    />
-                                    <path
-                                        d="M12 7.5v5M12 16v.3"
-                                        stroke="currentColor"
-                                        strokeWidth="1.7"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-
+                                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.5" /><path d="M12 7.5v5M12 16v.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
                                 <span>{error}</span>
                             </div>
                         )}
 
                         <form className={styles.form} onSubmit={submit}>
-                            {/* EMAIL */}
-
                             <label className={styles.field}>
                                 <span className={styles.fieldLabel}>{t.email}</span>
-
                                 <div className={styles.inputWrapper}>
-                                    <svg viewBox="0 0 24 24" fill="none">
-                                        <rect
-                                            x="3.5"
-                                            y="5.5"
-                                            width="17"
-                                            height="13"
-                                            rx="2.5"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                        />
-                                        <path
-                                            d="m5 7 7 5 7-5"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                        />
-                                    </svg>
-
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder={t.emailPlaceholder}
-                                        autoComplete="email"
-                                        dir="ltr"
-                                        required
-                                    />
+                                    <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="m5 7 7 5 7-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.emailPlaceholder} autoComplete="email" dir="ltr" required />
                                 </div>
                             </label>
 
-                            {/* PASSWORD */}
-
                             <label className={styles.field}>
                                 <span className={styles.fieldLabel}>{t.password}</span>
-
                                 <div className={styles.inputWrapper}>
-                                    <svg viewBox="0 0 24 24" fill="none">
-                                        <rect
-                                            x="5"
-                                            y="10"
-                                            width="14"
-                                            height="10"
-                                            rx="2.5"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                        />
-
-                                        <path
-                                            d="M8 10V7a4 4 0 0 1 8 0v3"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                        />
-                                    </svg>
-
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder={t.passwordPlaceholder}
-                                        autoComplete="current-password"
-                                        required
-                                    />
-
-                                    <button
-                                        type="button"
-                                        className={styles.passwordToggle}
-                                        onClick={() => setShowPassword((value) => !value)}
-                                        aria-label={
-                                            showPassword ? t.hidePassword : t.showPassword
-                                        }
-                                    >
+                                    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.5" /></svg>
+                                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t.passwordPlaceholder} autoComplete="current-password" required />
+                                    <button type="button" className={styles.passwordToggle} onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? t.hidePassword : t.showPassword}>
                                         {showPassword ? (
-                                            <svg viewBox="0 0 24 24" fill="none">
-                                                <path
-                                                    d="M3 3l18 18"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.5"
-                                                    strokeLinecap="round"
-                                                />
-
-                                                <path
-                                                    d="M10.5 10.5a2.2 2.2 0 0 0 3 3"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.5"
-                                                />
-
-                                                <path
-                                                    d="M9 5.5A9.6 9.6 0 0 1 12 5c5.5 0 9 7 9 7a14.5 14.5 0 0 1-2.4 3.2M6.2 6.2C4.2 7.7 3 10 3 12c0 0 3.5 7 9 7 1.1 0 2.1-.2 3-.5"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.5"
-                                                    strokeLinecap="round"
-                                                />
-                                            </svg>
+                                            <svg viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M10.5 10.5a2.2 2.2 0 0 0 3 3" stroke="currentColor" strokeWidth="1.5" /><path d="M9 5.5A9.6 9.6 0 0 1 12 5c5.5 0 9 7 9 7a14.5 14.5 0 0 1-2.4 3.2M6.2 6.2C4.2 7.7 3 10 3 12c0 0 3.5 7 9 7 1.1 0 2.1-.2 3-.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                                         ) : (
-                                            <svg viewBox="0 0 24 24" fill="none">
-                                                <path
-                                                    d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.5"
-                                                />
-
-                                                <circle
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="2.5"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.5"
-                                                />
-                                            </svg>
+                                            <svg viewBox="0 0 24 24" fill="none"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" strokeWidth="1.5" /><circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.5" /></svg>
                                         )}
                                     </button>
                                 </div>
                             </label>
 
-                            {/* LOGIN BUTTON */}
-
-                            <button
-                                type="submit"
-                                className={styles.loginButton}
-                                disabled={loading}
-                            >
-                                <span>
-                                    {loading ? t.loading : t.login}
-                                </span>
-
-                                {loading ? (
-                                    <span className={styles.loader} />
-                                ) : (
-                                    <svg viewBox="0 0 24 24" fill="none">
-                                        <path
-                                            d={
-                                                isArabic
-                                                    ? "M15 6l-6 6 6 6"
-                                                    : "M9 6l6 6-6 6"
-                                            }
-                                            stroke="currentColor"
-                                            strokeWidth="1.8"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                )}
+                            <button type="submit" className={styles.loginButton} disabled={loading}>
+                                <span>{loading ? t.loading : t.login}</span>
+                                {loading ? <span className={styles.loader} /> : <svg viewBox="0 0 24 24" fill="none"><path d={isArabic ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                             </button>
 
-                            {/* DIVIDER */}
+                            <div className={styles.divider}><span /><p>{t.demoDivider}</p><span /></div>
 
-                            <div className={styles.divider}>
-                                <span />
-                                <p>{t.demoDivider}</p>
-                                <span />
-                            </div>
+                            <button type="button" className={styles.demoButton} onClick={fillManagerDemoAccount}>
+                                <div className={styles.demoIcon}><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M14 7l5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+                                <div className={styles.demoText}><strong>{t.managerDemoTitle}</strong><span>{t.managerDemoText}</span></div>
+                            </button>
 
-                            {/* DEMO */}
-
-                            <button
-                                type="button"
-                                className={styles.demoButton}
-                                onClick={fillDemoAccount}
-                            >
-                                <div className={styles.demoIcon}>
-                                    <svg viewBox="0 0 24 24" fill="none">
-                                        <path
-                                            d="M5 12h14M14 7l5 5-5 5"
-                                            stroke="currentColor"
-                                            strokeWidth="1.6"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                </div>
-
-                                <div className={styles.demoText}>
-                                    <strong>{t.demoTitle}</strong>
-                                    <span>{t.demoText}</span>
-                                </div>
+                            <button type="button" className={styles.demoButton} onClick={fillFieldDemoAccount}>
+                                <div className={styles.demoIcon}><svg viewBox="0 0 24 24" fill="none"><path d="M4 18v-2.5A3.5 3.5 0 0 1 7.5 12h4A3.5 3.5 0 0 1 15 15.5V18M9.5 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM17 8h3M18.5 6.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></div>
+                                <div className={styles.demoText}><strong>{t.fieldDemoTitle}</strong><span>{t.fieldDemoText}</span></div>
                             </button>
                         </form>
 
                         <footer className={styles.authFooter}>
                             <div>
-                                <svg viewBox="0 0 24 24" fill="none">
-                                    <path
-                                        d="M12 3 5 6v5c0 4.6 2.7 8 7 10 4.3-2 7-5.4 7-10V6l-7-3Z"
-                                        stroke="currentColor"
-                                        strokeWidth="1.5"
-                                    />
-
-                                    <path
-                                        d="m9.5 12 1.7 1.7 3.6-4"
-                                        stroke="currentColor"
-                                        strokeWidth="1.5"
-                                    />
-                                </svg>
-
+                                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.6 2.7 8 7 10 4.3-2 7-5.4 7-10V6l-7-3Z" stroke="currentColor" strokeWidth="1.5" /><path d="m9.5 12 1.7 1.7 3.6-4" stroke="currentColor" strokeWidth="1.5" /></svg>
                                 <span>{t.secure}</span>
                             </div>
-
                             <span>MADAD · مَدَد</span>
                         </footer>
                     </div>
