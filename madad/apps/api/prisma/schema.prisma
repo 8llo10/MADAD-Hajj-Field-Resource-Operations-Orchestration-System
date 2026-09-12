@@ -7,17 +7,89 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { ADMIN COMMANDER DISPATCHER SUPERVISOR TECHNICIAN }
-enum TeamMemberRole { LEAD SUPERVISOR TECHNICIAN DRIVER SUPPORT }
-enum IncidentSeverity { LOW MEDIUM HIGH CRITICAL }
-enum IncidentStatus { OPEN TRIAGED ASSIGNED EN_ROUTE ON_SITE RESOLVED REOPENED CLOSED }
-enum TeamStatus { AVAILABLE BUSY OFFLINE }
-enum ResourceStatus { AVAILABLE IN_USE MAINTENANCE OFFLINE }
-enum ResourceType { VEHICLE GENERATOR PUMP TOOL KIT OTHER }
-enum DispatchStatus { PROPOSED ACCEPTED DISPATCHED ARRIVED COMPLETED CANCELLED }
-enum AssignmentMode { MANUAL AI AUTO_TIMEOUT }
-enum NotificationPriority { NORMAL HIGH URGENT }
-enum InventoryTxnType { RECEIPT ISSUE RETURN ADJUSTMENT }
+enum Role {
+  ADMIN
+  COMMANDER
+  DISPATCHER
+  SUPERVISOR
+  TECHNICIAN
+}
+
+enum TeamMemberRole {
+  LEAD
+  SUPERVISOR
+  TECHNICIAN
+  DRIVER
+  SUPPORT
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  TRIAGED
+  ASSIGNED
+  EN_ROUTE
+  ON_SITE
+  RESOLVED
+  REOPENED
+  CLOSED
+}
+
+enum TeamStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OFFLINE
+}
+
+enum ResourceType {
+  VEHICLE
+  GENERATOR
+  PUMP
+  TOOL
+  KIT
+  OTHER
+}
+
+enum DispatchStatus {
+  PROPOSED
+  ACCEPTED
+  DISPATCHED
+  ARRIVED
+  COMPLETED
+  CANCELLED
+}
+
+enum AssignmentMode {
+  MANUAL
+  AI
+  AUTO_TIMEOUT
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InventoryTxnType {
+  RECEIPT
+  ISSUE
+  RETURN
+  ADJUSTMENT
+}
 
 model User {
   id                     String               @id @default(cuid())
@@ -82,6 +154,7 @@ model Team {
   dispatches Dispatch[]
   resolvedIncidents Incident[] @relation("IncidentResolvedByTeam")
   incidentResolutions IncidentResolution[]
+
   @@index([status, siteId])
 }
 
@@ -92,6 +165,7 @@ model TeamMember {
   memberRole TeamMemberRole @default(TECHNICIAN)
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([teamId, userId])
   @@index([userId])
 }
@@ -129,6 +203,7 @@ model Incident {
   statusEvents IncidentStatusEvent[]
   notifications Notification[]
   resolutions IncidentResolution[]
+
   @@index([status, severity])
   @@index([autoAssignmentEnabled, autoAssignAt, status])
 }
@@ -165,6 +240,7 @@ model Dispatch {
   completedAt DateTime?
   resources DispatchResource[]
   resolutions IncidentResolution[]
+
   @@index([incidentId, status])
   @@index([teamId, status])
 }
@@ -192,6 +268,7 @@ model IncidentResolution {
   teamScore Float
   scoreBreakdown Json
   createdAt DateTime @default(now())
+
   @@index([resolvedByUserId, createdAt])
   @@index([teamId, createdAt])
   @@index([incidentId, createdAt])
@@ -217,6 +294,7 @@ model DispatchResource {
   resourceId String
   dispatch Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
   resource Resource @relation(fields: [resourceId], references: [id])
+
   @@unique([dispatchId, resourceId])
 }
 
@@ -252,6 +330,7 @@ model Notification {
   priority NotificationPriority @default(NORMAL)
   isRead Boolean @default(false)
   createdAt DateTime @default(now())
+
   @@index([userId, isRead, createdAt])
   @@index([incidentId])
 }
