@@ -105,10 +105,9 @@ export async function acceptAssignment(dispatchId: string, actorId: string | nul
       });
     }
 
-    const nextJobs = freshTeam.activeJobs + 1;
     await tx.team.update({
       where: { id: dispatch.teamId },
-      data: { status: nextJobs >= freshTeam.maxConcurrentJobs ? TeamStatus.BUSY : freshTeam.status, activeJobs: { increment: 1 } }
+      data: { status: TeamStatus.BUSY, activeJobs: { increment: 1 } }
     });
 
     await tx.incident.update({
