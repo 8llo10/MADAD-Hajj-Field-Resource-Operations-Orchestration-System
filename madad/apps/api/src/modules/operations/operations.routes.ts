@@ -3,6 +3,7 @@ import { IncidentSeverity, IncidentStatus, ResourceStatus, TeamStatus } from '@p
 import { prisma } from '../../config/db.js';
 import { asyncHandler } from '../../lib/async-handler.js';
 import { authenticate } from '../../middleware/auth.js';
+import { AppError } from '../../lib/errors.js';
 
 const router = Router(); router.use(authenticate);
 router.get('/overview', asyncHandler(async (_req, res) => {
@@ -13,7 +14,17 @@ router.get('/overview', asyncHandler(async (_req, res) => {
     prisma.team.count({ where: { status: TeamStatus.BUSY } }),
     prisma.resource.count({ where: { status: ResourceStatus.AVAILABLE } }),
     prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "InventoryItem" WHERE quantity <= "reorderLevel"`,
-    prisma.incident.findMany({ take: 8, orderBy: { openedAt: 'desc' }, include: { site: true, zone: true } })
+    prisma.incident.findMany({
+      take: 8,
+      orderBy: { openedAt: 'desc' },
+      include: {
+        site: true,
+        zone: true,
+        resolvedByUser: { select: { id: true, name: true } },
+        resolvedByTeam: { select: { id: true, name: true } },
+        dispatches: { include: { team: true }, orderBy: { proposedAt: 'desc' }, take: 3 }
+      }
+    })
   ]);
   res.json({
     counters: { openIncidents, criticalIncidents, availableTeams, busyTeams, availableResources, lowStock: Number(lowStock[0]?.count ?? 0) },
@@ -22,6 +33,23 @@ router.get('/overview', asyncHandler(async (_req, res) => {
 }));
 
 router.get('/sites', asyncHandler(async (_req, res) => res.json(await prisma.site.findMany({ include: { zones: true }, orderBy: { name: 'asc' } }))));
-router.get('/notifications', asyncHandler(async (req, res) => res.json(await prisma.notification.findMany({ where: { userId: req.user!.id }, orderBy: { createdAt: 'desc' }, take: 50 }))));
+
+router.get('/notifications', asyncHandler(async (req, res) => res.json(await prisma.notification.findMany({
+  where: { userId: req.user!.id },
+  include: { incident: { select: { id: true, code: true, title: true, status: true, severity: true } } },
+  orderBy: [{ isRead: 'asc' }, { createdAt: 'desc' }],
+  take: 50
+}))));
+
+router.patch('/notifications/:id/read', asyncHandler(async (req, res) => {
+  const id = String(req.params.id);
+  const updated = await prisma.notification.updateMany({
+    where: { id, userId: req.user!.id },
+    data: { isRead: true }
+  });
+  if (!updated.count) throw new AppError(404, 'Notification not found');
+  res.json({ updated: true });
+}));
+
 router.get('/audit', asyncHandler(async (_req, res) => res.json(await prisma.auditLog.findMany({ include: { actor: { select: { name: true, email: true } } }, orderBy: { createdAt: 'desc' }, take: 100 }))));
 export default router;
