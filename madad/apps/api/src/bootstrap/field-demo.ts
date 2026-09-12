@@ -1,6 +1,11 @@
 import { AssignmentMode, DispatchStatus, IncidentStatus, Role, TeamMemberRole, TeamStatus } from '@prisma/client';
 import { prisma } from '../config/db.js';
 
+const TERMINAL_INCIDENT_STATES = new Set<IncidentStatus>([
+  IncidentStatus.RESOLVED,
+  IncidentStatus.CLOSED
+]);
+
 export async function ensureFieldDemo() {
   const admin = await prisma.user.findUnique({ where: { email: 'admin@madad.sa' } });
   if (!admin) return;
@@ -33,7 +38,7 @@ export async function ensureFieldDemo() {
     where: { incidentId: incident.id, status: { in: [DispatchStatus.ACCEPTED, DispatchStatus.DISPATCHED, DispatchStatus.ARRIVED] } }
   });
 
-  if (!active && ![IncidentStatus.RESOLVED, IncidentStatus.CLOSED].includes(incident.status as IncidentStatus)) {
+  if (!active && !TERMINAL_INCIDENT_STATES.has(incident.status)) {
     await prisma.$transaction(async tx => {
       await tx.dispatch.create({
         data: {
